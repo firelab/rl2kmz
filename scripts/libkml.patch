@@ -1,0 +1,155 @@
+Index: ogr/ogrsf_frmts/libkml/ogrlibkmllayer.cpp
+===================================================================
+--- ogr/ogrsf_frmts/libkml/ogrlibkmllayer.cpp	(revision 27427)
++++ ogr/ogrsf_frmts/libkml/ogrlibkmllayer.cpp	(working copy)
+@@ -1243,6 +1243,64 @@
+ }
+ 
+ /************************************************************************/
++/*                         SetGroundOverlay()                           */
++/************************************************************************/
++
++void OGRLIBKMLLayer::SetGroundOverlay(const char *pszGOHref,
++                                      const char *pszGOName,
++                                      const char *pszGODescription,
++                                      const char *pszGOVisibility,
++                                      const char *pszGOAltitude,
++                                      const char *pszGOLatLonNorth,
++                                      const char *pszGOLatLonSouth,
++                                      const char *pszGOLatLonEast,
++                                      const char *pszGOLatLonWest,
++                                      const char *pszGOLatLonRotation,
++                                      const char *pszGOAltitudeMode)
++{
++    KmlFactory *poKmlFactory = m_poOgrDS->GetKmlFactory();
++    GroundOverlayPtr go = poKmlFactory->CreateGroundOverlay();
++
++    if(pszGOName != NULL)
++        go->set_name(pszGOName);
++    if(pszGODescription != NULL)
++        go->set_description(pszGODescription);
++
++    IconPtr icon = poKmlFactory->CreateIcon();
++    icon->set_href(pszGOHref);
++    go->set_icon(icon);
++
++    kmldom::LatLonBoxPtr latLonBox = poKmlFactory->CreateLatLonBox();
++    latLonBox->set_north(CPLAtof(pszGOLatLonNorth));
++    latLonBox->set_south(CPLAtof(pszGOLatLonSouth));
++    latLonBox->set_east(CPLAtof(pszGOLatLonEast));
++    latLonBox->set_west(CPLAtof(pszGOLatLonWest));
++    if(pszGOLatLonRotation != NULL)
++        latLonBox->set_rotation(CPLAtof(pszGOLatLonRotation));
++    go->set_latlonbox(latLonBox);
++
++    if(pszGOAltitude != NULL)
++        go->set_altitude(CPLAtof(pszGOAltitude));
++    if(pszGOAltitudeMode != NULL)
++    {
++        int isGX = FALSE;
++        int iAltitudeMode = kmlAltitudeModeFromString(pszGOAltitudeMode, isGX);
++        if(iAltitudeMode != kmldom::ALTITUDEMODE_CLAMPTOGROUND &&
++            pszGOAltitude == NULL)
++        {
++            CPLError(CE_Warning, CPLE_AppDefined, "GroundOverlay altitude should be present for altitudeMode = %s",
++                     pszGOAltitudeMode);
++        }
++        else if(isGX)
++            go->set_gx_altitudemode(iAltitudeMode);
++        else
++            go->set_altitudemode(iAltitudeMode);
++    }
++
++    m_poKmlLayer->add_feature(go);
++}
++
++/************************************************************************/
+ /*                           SetListStyle()                              */
+ /************************************************************************/
+ 
+Index: ogr/ogrsf_frmts/libkml/ogr_libkml.h
+===================================================================
+--- ogr/ogrsf_frmts/libkml/ogr_libkml.h	(revision 27427)
++++ ogr/ogrsf_frmts/libkml/ogr_libkml.h	(working copy)
+@@ -180,6 +180,17 @@
+                                                const char* pszSOSizeY,
+                                                const char* pszSOSizeXUnits,
+                                                const char* pszSOSizeYUnits);
++    void                      SetGroundOverlay(const char *pszGOHref,
++                                               const char *pszGOName,
++                                               const char *pszGODescription,
++                                               const char *pszGOVisibility,
++                                               const char *pszGOAltitude,
++                                               const char *pszGOLatLonNorth,
++                                               const char *pszGOLatLonSouth,
++                                               const char *pszGOLatLonEast,
++                                               const char *pszGOLatLonWest,
++                                               const char *pszGOLatLonRotation,
++                                               const char *pszGOAltitudeMode);
+ 
+     void                      SetListStyle(const char* pszListStyleType,
+                                            const char* pszListStyleIconHref);
+Index: ogr/ogrsf_frmts/libkml/ogrlibkmldatasource.cpp
+===================================================================
+--- ogr/ogrsf_frmts/libkml/ogrlibkmldatasource.cpp	(revision 27427)
++++ ogr/ogrsf_frmts/libkml/ogrlibkmldatasource.cpp	(working copy)
+@@ -2342,7 +2342,36 @@
+                                      pszSOSizeXUnits,
+                                      pszSOSizeYUnits);
+     }
+-    
++
++    const char* pszGOHref = CSLFetchNameValue(papszOptions, "GO_HREF");
++    const char* pszGOName = CSLFetchNameValue(papszOptions, "GO_NAME");
++    const char* pszGODescription = CSLFetchNameValue(papszOptions, "GO_DESCRIPTION");
++    const char* pszGOAltitude = CSLFetchNameValue(papszOptions, "GO_ALTITUDE");
++    const char* pszGOVisibility = CSLFetchNameValue(papszOptions, "GO_VISIBILITY");
++    const char* pszGOLatLonNorth = CSLFetchNameValue(papszOptions, "GO_NORTH");
++    const char* pszGOLatLonSouth = CSLFetchNameValue(papszOptions, "GO_SOUTH");
++    const char* pszGOLatLonEast = CSLFetchNameValue(papszOptions, "GO_EAST");
++    const char* pszGOLatLonWest = CSLFetchNameValue(papszOptions, "GO_WEST");
++    const char* pszGOLatLonRotation = CSLFetchNameValue(papszOptions, "GO_ROTATION");
++    const char* pszGOAltitudeMode = CSLFetchNameValue(papszOptions, "GO_ALTITUDEMODE");
++
++    if( poOgrLayer != NULL && pszGOHref != NULL &&
++        pszGOLatLonNorth != NULL && pszGOLatLonSouth != NULL &&
++        pszGOLatLonEast != NULL && pszGOLatLonWest != NULL )
++    {
++        poOgrLayer->SetGroundOverlay(pszGOHref,
++                                     pszGOName,
++                                     pszGODescription,
++                                     pszGOVisibility,
++                                     pszGOAltitude,
++                                     pszGOLatLonNorth,
++                                     pszGOLatLonSouth,
++                                     pszGOLatLonEast,
++                                     pszGOLatLonWest,
++                                     pszGOLatLonRotation,
++                                     pszGOAltitudeMode);
++    }
++
+     const char* pszListStyleType = CSLFetchNameValue(papszOptions, "LISTSTYLE_TYPE");
+     const char* pszListStyleIconHref = CSLFetchNameValue(papszOptions, "LISTSTYLE_ICON_HREF");
+     if( poOgrLayer != NULL )
+Index: ogr/ogrsf_frmts/libkml/ogrlibkmldriver.cpp
+===================================================================
+--- ogr/ogrsf_frmts/libkml/ogrlibkmldriver.cpp	(revision 27427)
++++ ogr/ogrsf_frmts/libkml/ogrlibkmldriver.cpp	(working copy)
+@@ -320,6 +320,17 @@
+ "    <Value>pixels</Value>"
+ "    <Value>insetPixels</Value>"
+ "  </Option>"
++"  <Option name='GO_HREF' type='string' description='URL of image to display in GroundOverlay'/>"
++"  <Option name='GO_NAME' type='string' description='<name> of a <GroundOverlay>'/>"
++"  <Option name='GO_DESCRIPTION' type='string' description='<description> of a <GroundOverlay>'/>"
++"  <Option name='GO_ALTITUDE' type='float' description='altitude of a <GroundOverlay>'/>"
++"  <Option name='GO_VISIBILITY' type='boolean' description='visibility of a <GroundOverlay>'/>"
++"  <Option name='GO_NORTH' type='float' description='North bounds of a <GroundOverlay>' min='-90' max='90' />"
++"  <Option name='GO_SOUTH' type='float' description='South bounds of a <GroundOverlay>' min='-90' max='90' />"
++"  <Option name='GO_EAST' type='float' description='East bounds of a <GroundOverlay>' min='-180' max='180' />"
++"  <Option name='GO_WEST' type='float' description='West bounds of a <GroundOverlay>' min='-180' max='180' />"
++"  <Option name='GO_ROTATION' type='float' description='rotation of a <GroundOverlay>' min='0' max='360' />"
++"  <Option name='GO_ALTITUDEMODE' type='string-select' description='<altitudeMode> of a <GroundOverlay> element'/>"
+ "  <Option name='FOLDER' type='boolean' description='Whether to generate a <Folder> element for layers, instead of a <Document>' default='NO'/>"
+ "  <Option name='LISTSTYLE_TYPE' type='string-select' description='Value of <listItemType> element of layer container'>"
+ "    <Value>check</Value>"

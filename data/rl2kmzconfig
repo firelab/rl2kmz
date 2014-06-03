@@ -1,0 +1,16 @@
+# I don't parse this very well, don't put EQUALS sign in comments
+# Temportary tif file, removed after final kmz is made
+# Image file for legend
+dry_ltng_legend=/home/kyle/Desktop/paul/rl2kmz/dry_ltng_legend.png
+# Title image file
+dry_ltng_title=/home/kyle/Desktop/paul/rl2kmz/dry_ltng_title.png
+# Polygon legend image file
+poly_legend=/home/kyle/Desktop/paul/rl2kmz/critical.png
+# File to look for polygons in
+poly_kml=/home/kyle/Desktop/paul/rl2kmz/test_in.kmz
+# Date string file
+date_file=/home/kyle/Desktop/paul/rl2kmz/fdc_dates.txt
+# Critical OGR Style string
+critical_style=PEN(c:#FF0000FF,w:1px);BRUSH(fc:#00000000)
+# Extreme OGR Style string
+extreme_style=PEN(c:#000000FF,w:8px);BRUSH(fc:#00000000)
